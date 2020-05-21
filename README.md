@@ -2,12 +2,12 @@
   <a href="https://www.nuget.org/packages/DllMapCore">
     <img src="https://buildstats.info/nuget/DllMapCore">
   </a>
-  <a href="https://travis-ci.org/jpbruyere/DllMapCore">
+  <!--<a href="https://travis-ci.org/jpbruyere/DllMapCore">
     <img src="https://travis-ci.org/jpbruyere/DllMapCore.svg?branch=master">
   </a>
   <a href="https://ci.appveyor.com/project/jpbruyere/DllMapCore">
     <img src="https://ci.appveyor.com/api/projects/status/fdwb4e3ru7y8v3sp/branch/master?svg=true">
-  </a>  
+  </a>-->  
   <img src="https://img.shields.io/github/license/jpbruyere/DllMapCore.svg?style=flat-square">
   <a href="https://www.paypal.me/GrandTetraSoftware">
     <img src="https://img.shields.io/badge/Donate-PayPal-blue.svg?style=flat-square">
@@ -19,7 +19,6 @@ Enable [Mono dllmap](https://www.mono-project.com/docs/advanced/pinvoke/dllmap/)
 Once enabled, **.config** files will be scanned to [register](https://docs.microsoft.com/en-us/dotnet/api/system.runtime.interopservices.nativelibrary.setdllimportresolver?view=netcore-3.1) alternative pathes for native dll's resolution.
 
 ## Quick start
-_______
 #### App.config
 
 Add an `App.config` file to your project or use the existing one:
@@ -46,7 +45,7 @@ The `App.config` will be used to generate a `yourassemblyname.exe.config` file i
 
 #### DllMapCore activation
 
-Call the `Enable` static method in your main method. Ensure no type from assemblies that need native resolution are used as member of the main class, or in the Main method or their will trigger the assembly load event before it had been hooked to register the resolve handler.
+Call the `Enable` static method before any call to methods requiring a native library path resolution.
 
 ```csharp
 static void Main() {
