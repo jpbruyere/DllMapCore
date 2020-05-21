@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+		<Version>0.1.0</Version>
+		<ReleaseVersion>$(Version)</ReleaseVersion>
+		<PackageVersion>$(Version)-beta</PackageVersion>
+		<Description>DllMap resolver for NETCore</Description>		
+		<PackageTags>netcore dllmap</PackageTags>
+		<Authors>jp_bruyere@hotmail.com</Authors>
+		<Copyright>Copyright 2020 Jean-Philippe Bruyère</Copyright>
+		<License>MIT</License>
+		<PackageReleaseNotes>	
+		</PackageReleaseNotes>
+		
+		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+		<PackageLicenseUrl>https://github.com/jpbruyere/DllMapCore/blob/master/LICENSE</PackageLicenseUrl>
+		<PackageProjectUrl>https://github.com/jpbruyere/DllMapCore</PackageProjectUrl>
+		<PackageIconUrl>
+		</PackageIconUrl>
+		
+		<OutputPath>$(SolutionDir)build\$(Configuration)\</OutputPath>
+		<IntermediateOutputPath>$(SolutionDir)build\$(Configuration)\</IntermediateOutputPath>
+		
+  </PropertyGroup>
+
+</Project>
