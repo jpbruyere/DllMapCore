@@ -14,31 +14,46 @@
   </a>
 </p>
 
-Enable [mono dllmap](https://www.mono-project.com/docs/advanced/pinvoke/dllmap/) on net core with its new [native library resolver](https://docs.microsoft.com/en-us/dotnet/api/system.runtime.interopservices.nativelibrary.setdllimportresolver?view=netcore-3.1)
+Enable [Mono dllmap](https://www.mono-project.com/docs/advanced/pinvoke/dllmap/) in NETCore applications. 
 
-Call the `Enable` static method in your main method.
-```csharp
-void Main() {
-	DllMapCore.Resolve.Enable ();
-```
+Once enabled, **.config** files will be scanned to [register](https://docs.microsoft.com/en-us/dotnet/api/system.runtime.interopservices.nativelibrary.setdllimportresolver?view=netcore-3.1) alternative pathes for native dll's resolution.
 
-This will trigger on each assebly load events in current domain a search for a corresponding `.config` file in the same directory.
-This config will be automatically created from your `App.config`, if not, add this entry to your project properties:
-```xml
-<Project Sdk="Microsoft.NET.Sdk">
-	...	
-  <PropertyGroup>
-  	...
-		<AppConfig>App.config</AppConfig>	
-```
-In your project `App.config`, you may now be able to add `dllmap` entries to resolve native dll's.
+## Quick start
+_______
+#### App.config
 
+Add an `App.config` file to your project or use the existing one:
 ```xml
 <configuration>
-    <dllmap dll="glfw3" target="libglfw.so" os="!windows"/>
-    <dllmap dll="glfw3.dll" target="libglfw.so" os="!windows"/>
-    <dllmap dll="rsvg-2.40" target="librsvg-2.so" os="!windows"/>
+  ...  
+  <dllmap dll="cairo" target="libcairo.so.2" os="!windows"/>
+  <dllmap dll="glfw3" target="libglfw.so" os="linux,unix"/>
+  <dllmap dll="rsvg-2" target="rsvg-2.40.dll" os="windows"/>
 </configuration>
 ```
+Each ```<dllmap>``` entries must have the following attributes:
 
-Where `dll` is the original string of the pinvoke, `target` is the replacement string, and `os` may be one of the following: (`linux`, `unix`, `windows`, `osx`);
+- **dll**: the original dll path string of the pinvoke.
+- **target**: the alternative path for the dll
+- **os**: A colon separated list of the platforms on which to use this alternative path. It may be one of the following: `'linux'`, `'unix'`, `'windows'`, `'osx'`, and may be prefixed with `!` as a negation.
+
+The `App.config` will be used to generate a `yourassemblyname.exe.config` file in the output directory. If not, add this to your `csproj`:
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AppConfig>App.config</AppConfig>	
+```
+
+#### DllMapCore activation
+
+Call the `Enable` static method in your main method. Ensure no type from assemblies that need native resolution are used as member of the main class, or in the Main method or their will trigger the assembly load event before it had been hooked to register the resolve handler.
+
+```csharp
+static void Main() {
+  DllMapCore.Resolve.Enable ();
+  ...
+```
+
+Once enabled, DllMapCore will search for each loaded assemblies a corresponding `.config` file next to it containing `<dllmap>` entries.
+
+If you pass ```true``` to the Enable method, all the `.config` files will be merged and used for each loaded assemblies. This allow you to have a single App.config for you main program that could resolve every native library access, even from nuget packages.

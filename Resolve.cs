@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Xml;
 
@@ -11,67 +12,84 @@ namespace DllMapCore {
 	/// <summary>
 	/// DllMapCore Resolver.
 	/// </summary>
-	public static class Resolve {	
+	public static class Resolve {
 		static Dictionary<string, Dictionary<string, List<string>>> resolves = new Dictionary<string, Dictionary<string, List<string>>> ();
-
+		static bool global = false;
 		/// <summary>
-		/// Ename dllmap entries parsing in App.config files on assembly load in current domain. Call this method
-		/// on the first statement of your main entry point.
+		/// Enable parsing of `.config` files of loaded assemblies in the search of `dllmap` entries for native dll resolution.
 		/// </summary>
 		/// <remarks>
-		/// On assembly load, search for a corresponding '.config' xml file and parse dllmap entries.
 		/// use the new net core DllImportResolver to resolve imports.
-		/// Ensure no resolve sensitive type is used in the Main method, or there will trigger
-		/// an attempt of resolve before DllMapCore had time to register its callbacks.
 		/// </remarks>
-		public static void Enable () {
+		/// <param name="global">If set to <c>true</c>, all found `.config` files are combined and used for all
+		/// dll resolutions in all assemblies</param>
+		public static void Enable (bool global = false) {
 			AppDomain currentDomain = AppDomain.CurrentDomain;
 			currentDomain.AssemblyLoad += assemblyLoadHandler;
+			Resolve.global = global;
+			resolves.Add ("global", new Dictionary<string, List<string>> ());
+
+			//process already loaded assemblies
+			foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies()) 
+				processAssembly (assembly);			
 		}
+		//process each newly loaded assembly in the current appdomain.
+		static void assemblyLoadHandler (object sender, AssemblyLoadEventArgs args) =>
+			processAssembly (args.LoadedAssembly);
+		//- search for a matching .config file in the same directory as the assembly
+		//- parse `dllmap` elements child of the `configuration` tag.
+		static void processAssembly (Assembly loadedAssembly) {
+			string f = loadedAssembly.Location;
+			string config = loadedAssembly.Location + ".config";
 
-		static void assemblyLoadHandler (object sender, AssemblyLoadEventArgs args) {
-			string f = args.LoadedAssembly.Location;
-			string config = args.LoadedAssembly.Location + ".config";
+			if (File.Exists (config)) {
+				Dictionary<string, List<string>> maps = global ?
+					resolves["global"] : new Dictionary<string, List<string>> ();
 
-			if (!File.Exists (config))
-				return;
-
-			Dictionary<string, List<string>> maps = new Dictionary<string, List<string>> ();
-
-			using (XmlReader xml = XmlReader.Create (config)) {
-				if (!xml.ReadToFollowing ("configuration"))
-					return;
-				if (!xml.ReadToDescendant ("dllmap"))
-					return;
-				do {
-					if (processMapEntry (xml, out string dll, out string target)) {
-						if (maps.ContainsKey (dll))
-							maps[dll].Add (target);
-						else
-							maps.Add (dll, new List<string> () { target });
-					}
-				} while (xml.ReadToNextSibling ("dllmap"));
-			}
-
-			if (maps.Count == 0)
-				return;
-
-			resolves[args.LoadedAssembly.FullName] = maps;
-
-			NativeLibrary.SetDllImportResolver (args.LoadedAssembly,(libraryName, assembly, searchPath) => {
-				if (resolves.TryGetValue(assembly.FullName, out Dictionary<string, List<string>> ms)) {
-					if (ms.ContainsKey (libraryName)) {
-						foreach (string map in ms[libraryName]) {
-							try {
-								return NativeLibrary.Load (map, assembly, searchPath);
-							} catch { }
+				using (XmlReader xml = XmlReader.Create (config)) {
+					if (!xml.ReadToFollowing ("configuration"))
+						return;
+					if (!xml.ReadToDescendant ("dllmap"))
+						return;
+					do {
+						if (processMapEntry (xml, out string dll, out string target)) {
+							if (maps.ContainsKey (dll))
+								maps[dll].Add (target);
+							else
+								maps.Add (dll, new List<string> () { target });
 						}
+					} while (xml.ReadToNextSibling ("dllmap"));
+				}
+
+				if (!global) {
+					if (maps.Count > 0)
+						resolves.Add (loadedAssembly.FullName, maps);
+					NativeLibrary.SetDllImportResolver (loadedAssembly, (libraryName, assembly, searchPath) => {
+						if (resolves.TryGetValue (assembly.FullName, out Dictionary<string, List<string>> ms)) {
+							if (ms.ContainsKey (libraryName)) {
+								foreach (string map in ms[libraryName]) {
+									try {
+										return NativeLibrary.Load (map, assembly, searchPath);
+									} catch { }
+								}
+							}
+						}
+						return NativeLibrary.Load (libraryName, assembly, searchPath);
+					});
+					return;
+				}
+			}
+			NativeLibrary.SetDllImportResolver (loadedAssembly, (libraryName, assembly, searchPath) => {
+				if (resolves["global"].ContainsKey (libraryName)) {
+					foreach (string map in resolves["global"][libraryName]) {
+						try {
+							return NativeLibrary.Load (map, assembly, searchPath);
+						} catch { }
 					}
 				}
 				return NativeLibrary.Load (libraryName, assembly, searchPath);
-			});			
+			});
 		}
-
 
 		/// <summary>
 		/// linux, osx, solaris, freebsd, openbsd, netbsd, windows, aix, hpux.
